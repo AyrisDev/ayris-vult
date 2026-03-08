@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
+    const prisma = new PrismaClient();
     try {
         const databases = await prisma.monitoredDatabase.findMany({
             include: { backups: true }
@@ -11,10 +12,13 @@ export async function GET() {
         return NextResponse.json(databases);
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
+    } finally {
+        await prisma.$disconnect();
     }
 }
 
 export async function POST(request: Request) {
+    const prisma = new PrismaClient();
     try {
         const body = await request.json();
         const { name, containerId, dbType, dbUser, dbName } = body;
@@ -33,5 +37,7 @@ export async function POST(request: Request) {
         return NextResponse.json(newDb);
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
+    } finally {
+        await prisma.$disconnect();
     }
 }
