@@ -1,0 +1,42 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model MonitoredDatabase {
+  id            String   @id @default(uuid())
+  name          String
+  containerId   String   @unique
+  dbType        String   // postgres, mysql, mongodb
+  dbUser        String
+  dbName        String
+  status        String   @default("active") // active, down
+  lastBackup    DateTime?
+  backups       Backup[]
+  createdAt     DateTime @default(now())
+}
+
+model Backup {
+  id                String            @id @default(uuid())
+  databaseId        String
+  database          MonitoredDatabase @relation(fields: [databaseId], references: [id])
+  filename          String
+  sizeBytes         BigInt
+  status            String            // success, failed
+  destinationUrl    String?
+  encryptedWithKey  String?
+  errorLog          String?           @db.Text
+  createdAt         DateTime          @default(now())
+}
+
+model Destination {
+  id        String   @id @default(uuid())
+  type      String   // gitea, s3, telegram
+  config    Json     // encrypted credentials
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
