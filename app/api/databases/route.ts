@@ -21,15 +21,16 @@ export async function POST(request: Request) {
     const prisma = new PrismaClient();
     try {
         const body = await request.json();
-        const { name, containerId, dbType, dbUser, dbName } = body;
+        const { name, containerId, connectionUrl, dbType, dbUser, dbName } = body;
 
         const newDb = await prisma.monitoredDatabase.create({
             data: {
                 name,
-                containerId: containerId || `manual-${Date.now()}`,
+                containerId: containerId || null,
+                connectionUrl: connectionUrl || null,
                 dbType,
-                dbUser,
-                dbName,
+                dbUser: dbUser || null,
+                dbName: dbName || null,
                 status: 'active'
             }
         });

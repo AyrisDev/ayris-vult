@@ -9,10 +9,11 @@ generator client {
 model MonitoredDatabase {
   id            String   @id @default(uuid())
   name          String
-  containerId   String   @unique
+  containerId   String?  @unique
+  connectionUrl String?  @db.Text
   dbType        String   // postgres, mysql, mongodb
-  dbUser        String
-  dbName        String
+  dbUser        String?
+  dbName        String?
   status        String   @default("active") // active, down
   lastBackup    DateTime?
   backups       Backup[]
@@ -22,7 +23,7 @@ model MonitoredDatabase {
 model Backup {
   id                String            @id @default(uuid())
   databaseId        String
-  database          MonitoredDatabase @relation(fields: [databaseId], references: [id])
+  database          MonitoredDatabase @relation(fields: [databaseId], references: [id], onDelete: Cascade)
   filename          String
   sizeBytes         BigInt
   status            String            // success, failed

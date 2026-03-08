@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { 
     Shield, Activity, Database, Download, RefreshCw, 
     HardDrive, AlertCircle, CheckCircle2, Search,
-    GripVertical, Trash2, Settings, Terminal, Plus, X, Server
+    GripVertical, Trash2, Settings, Terminal, Plus, X, Server, Link as LinkIcon, Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -12,12 +12,14 @@ export default function Dashboard() {
     const [databases, setDatabases] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [backingUpId, setBackingUpId] = useState<string | null>(null);
     const [newDb, setNewDb] = useState({
         name: '',
         dbType: 'postgres',
         dbUser: 'postgres',
         dbName: 'postgres',
-        containerId: ''
+        containerId: '',
+        connectionUrl: ''
     });
 
     useEffect(() => {
@@ -46,7 +48,7 @@ export default function Dashboard() {
             });
             if (res.ok) {
                 setIsAddModalOpen(false);
-                setNewDb({ name: '', dbType: 'postgres', dbUser: 'postgres', dbName: 'postgres', containerId: '' });
+                setNewDb({ name: '', dbType: 'postgres', dbUser: 'postgres', dbName: 'postgres', containerId: '', connectionUrl: '' });
                 fetchDatabases();
             }
         } catch (error) {
@@ -61,6 +63,28 @@ export default function Dashboard() {
             fetchDatabases();
         } catch (error) {
             console.error('Delete failed');
+        }
+    };
+
+    const handleInstantBackup = async (id: string) => {
+        setBackingUpId(id);
+        try {
+            const res = await fetch('/api/backup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(`Backup Successful: ${data.filename}`);
+                fetchDatabases();
+            } else {
+                alert(`Backup Failed: ${data.error}`);
+            }
+        } catch (error) {
+            alert('Backup Error occurred');
+        } finally {
+            setBackingUpId(null);
         }
     };
 
@@ -143,15 +167,21 @@ export default function Dashboard() {
                                         <div className="flex items-center gap-3">
                                             <h3 className="text-xl font-black uppercase tracking-tight">{db.name}</h3>
                                             <span className="px-3 py-1 bg-black/40 rounded-lg border border-white/10 text-[8px] font-black text-gray-500 uppercase tracking-widest">{db.dbType}</span>
+                                            {db.connectionUrl && <LinkIcon size={12} className="text-emerald-500" />}
                                         </div>
                                         <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1 flex items-center gap-2">
-                                            User: {db.dbUser} <span className="w-1 h-1 bg-gray-700 rounded-full" /> Target: {db.dbName}
+                                            {db.connectionUrl ? 'Cloud/Remote Node' : `Container: ${db.containerId?.slice(0, 12)}`} <span className="w-1 h-1 bg-gray-700 rounded-full" /> {db.dbName}
                                         </p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-4">
-                                    <button className="px-8 py-5 bg-white/5 text-white rounded-[24px] font-black text-xs uppercase tracking-[0.2em] hover:bg-white/10 active:scale-95 transition-all flex items-center gap-3">
-                                        <Download size={16} /> Instant Backup
+                                    <button 
+                                        onClick={() => handleInstantBackup(db.id)}
+                                        disabled={backingUpId === db.id}
+                                        className="px-8 py-5 bg-white/5 text-white rounded-[24px] font-black text-xs uppercase tracking-[0.2em] hover:bg-white/10 active:scale-95 transition-all flex items-center gap-3 disabled:opacity-50"
+                                    >
+                                        {backingUpId === db.id ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} 
+                                        Instant Backup
                                     </button>
                                     <button 
                                         onClick={() => handleDeleteDb(db.id)}
@@ -169,7 +199,7 @@ export default function Dashboard() {
             {/* Register Modal */}
             <AnimatePresence>
                 {isAddModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 overflow-y-auto">
                         <motion.div 
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -181,11 +211,11 @@ export default function Dashboard() {
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="relative w-full max-w-2xl bg-[#0A0A0A] border border-white/10 rounded-[64px] p-12 lg:p-16 space-y-10 shadow-3xl"
+                            className="relative w-full max-w-2xl bg-[#0A0A0A] border border-white/10 rounded-[64px] p-12 lg:p-16 space-y-10 shadow-3xl my-auto"
                         >
                             <div className="flex justify-between items-center">
                                 <div>
-                                    <h2 className="text-3xl font-black uppercase italic tracking-tighter">Register DB</h2>
+                                    <h2 className="text-3xl font-black uppercase italic tracking-tighter text-blue-500">Register DB</h2>
                                     <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.4em] mt-1">Initialize Monitoring Sequence</p>
                                 </div>
                                 <button onClick={() => setIsAddModalOpen(false)} className="p-4 bg-white/5 rounded-2xl hover:bg-white/10 transition-all text-gray-500 hover:text-white">
@@ -205,6 +235,17 @@ export default function Dashboard() {
                                     />
                                 </div>
 
+                                <div className="space-y-4">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-2 flex items-center gap-2"><LinkIcon size={12}/> Connection URL (Recommended)</label>
+                                    <input 
+                                        className="w-full bg-white/5 border border-white/5 rounded-3xl p-6 text-xs font-mono text-blue-400 placeholder:text-gray-800 focus:outline-none focus:border-blue-500 transition-all"
+                                        placeholder="postgresql://user:pass@host:port/dbname"
+                                        value={newDb.connectionUrl}
+                                        onChange={e => setNewDb({...newDb, connectionUrl: e.target.value})}
+                                    />
+                                    <p className="text-[8px] text-gray-600 font-bold uppercase tracking-widest px-2">Leave blank if using local Docker Container ID</p>
+                                </div>
+
                                 <div className="grid grid-cols-2 gap-6">
                                     <div className="space-y-4">
                                         <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-2">Engine Type</label>
@@ -219,10 +260,10 @@ export default function Dashboard() {
                                         </select>
                                     </div>
                                     <div className="space-y-4">
-                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-2">Docker Container ID</label>
+                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest pl-2">Docker ID</label>
                                         <input 
                                             className="w-full bg-white/5 border border-white/5 rounded-[24px] p-6 text-xs font-black placeholder:text-gray-800 focus:outline-none focus:border-blue-500 uppercase tracking-tight"
-                                            placeholder="Optional Container ID"
+                                            placeholder="Optional ID"
                                             value={newDb.containerId}
                                             onChange={e => setNewDb({...newDb, containerId: e.target.value})}
                                         />
